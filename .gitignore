@@ -1,0 +1,5 @@
+echo "*.RData
+*.Rhistory
+.Rproj.user/
+data/fifa21 raw data v2.csv
+data/fifa21 raw data v2_clean.csv" > .gitignore
