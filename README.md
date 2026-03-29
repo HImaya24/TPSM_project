@@ -1,5 +1,5 @@
 # FIFA 21 — Data Preprocessing Impact on Model Accuracy
-### Data Analytics Module | Week 3 Group Assignment
+### TPSM Group Assignment
 
 ---
 
@@ -25,7 +25,7 @@ This project investigates and statistically justifies the above statement using 
 ## Folder Structure
 
 ```
-FIFA21_Project/
+TPSM_Project/
 │
 ├── master_script.R               ← Run this to execute the full project
 │
@@ -61,8 +61,8 @@ FIFA21_Project/
 
 ### Step 1 — Clone the Repository
 ```bash
-git clone https://github.com/yourname/FIFA21_Project.git
-cd FIFA21_Project
+git clone https://github.com/yourname/TPSM_Project.git
+cd TPSM_Project
 ```
 
 ### Step 2 — Download the Dataset
@@ -88,10 +88,10 @@ install.packages("e1071")
 Open `master_script.R` and update the `setwd()` path to match your computer:
 ```r
 # Windows
-setwd("C:/Users/YourName/FIFA21_Project")
+setwd("C:/Users/YourName/TPSM_Project")
 
 # Mac
-setwd("/Users/YourName/FIFA21_Project")
+setwd("/Users/YourName/TPSM_Project")
 ```
 
 ### Step 5 — Run the Master Script
