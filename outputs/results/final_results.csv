@@ -1,0 +1,16 @@
+Metric,Value
+Mean R² (Raw Data),0.9862
+Mean R² (Clean Data),0.9902
+Standard Deviation (Raw),0.0014
+Standard Deviation (Clean),6.00E-04
+Mean Difference (Clean - Raw),0.004
+Improvement Percentage,0.41%
+t-statistic,8.0047
+Degrees of Freedom,9
+p-value,2.20E-05
+Significance Level (α),0.05
+Statistical Decision,Reject H0
+Hedges g (Effect Size),3.3689
+Effect Size Interpretation,Large
+95% CI Lower Bound,0.002896
+95% CI Upper Bound,0.005177

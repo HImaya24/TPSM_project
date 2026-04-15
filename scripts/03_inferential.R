@@ -198,3 +198,12 @@ results_table <- data.frame(
 )
 
 print(results_table)
+
+# Save results table
+write.csv(results_table,
+          "C:/Users/HP/Desktop/final_results.csv",
+          row.names = FALSE)
+
+cat ("Results saved.")
+
+View(results_table)
