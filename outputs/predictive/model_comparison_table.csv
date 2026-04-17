@@ -1,5 +1,5 @@
 "Model","Raw_R2","Clean_R2","Raw_RMSE","Clean_RMSE","Raw_MAE","Clean_MAE"
-"Linear Regression",0.8951,0.8811,2.2571,1.7914,1.7667,1.3525
+"Linear Regression (Tuned)",0.895,0.907,2.258,1.5839,1.7671,1.0939
 "Decision Tree",0.8935,0.9383,2.2739,1.2902,1.763,0.9177
-"Random Forest",0.9756,0.9838,1.1077,0.6876,0.8199,0.4887
-"Gradient Boosting",0.9612,0.976,1.3745,0.8046,1.0448,0.6018
+"Random Forest",0.9753,0.9859,1.115,0.6339,0.8234,0.4489
+"Gradient Boosting",0.963,0.98,1.3422,0.734,1.0202,0.52

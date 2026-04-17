@@ -5,6 +5,11 @@ library(rpart)
 library(randomForest)
 library(Metrics)
 library(ggplot2)
+if (!requireNamespace("glmnet", quietly = TRUE)) {
+  cat("Installing 'glmnet' package for tuned linear regression...\n")
+  install.packages("glmnet", repos = "https://cran.rstudio.com/")
+}
+library(glmnet)
 library(gbm)
 
 # STEP 2 — Load Data
@@ -56,15 +61,30 @@ train_clean <- train_clean %>% select(-any_of(leaky_cols))
 test_clean  <- test_clean  %>% select(-any_of(leaky_cols))
 
 
-# STEP 6 — Model 1: Linear Regression
-cat("\nTraining Linear Regression...\n")
+# STEP 6 — Model 1: Tuned Linear Regression (Elastic Net)
+cat("\nTraining Tuned Linear Regression (Elastic Net)...\n")
+
+# Use Cross-Validation to find optimal alpha (0=Ridge, 1=Lasso) and lambda
+train_ctrl <- trainControl(method = "cv", number = 5)
+tune_grid  <- expand.grid(alpha = seq(0, 1, by = 0.2), 
+                         lambda = seq(0.001, 0.1, by = 0.02))
+
+# Fine-Tuning: Identify top correlates for non-linear modeling
+# We'll add quadratic terms for variables that often have non-linear decay/growth in FIFA
+poly_cols <- intersect(c("Reactions", "Ball.Control", "Value", "Wage", "Age", "Composure"), names(train_clean))
+poly_formula_part <- paste0(" + I(", poly_cols, "^2)", collapse = "")
 
 # Train
 formula_raw   <- as.formula(paste(target_col, "~ ."))
-formula_clean <- as.formula(paste(target_col, "~ ."))
+formula_clean <- as.formula(paste(target_col, "~ .", poly_formula_part))
 
-lr_raw   <- lm(formula_raw, data=train_raw)
-lr_clean <- lm(formula_clean, data=train_clean)
+cat("Using enhanced formula for Clean LR with quadratic terms for:", paste(poly_cols, collapse=", "), "\n")
+
+lr_raw   <- train(formula_raw, data=train_raw, method="glmnet", 
+                  trControl=train_ctrl, tuneGrid=tune_grid)
+
+lr_clean <- train(formula_clean, data=train_clean, method="glmnet", 
+                  trControl=train_ctrl, tuneGrid=tune_grid)
 
 # Predict
 lr_raw_pred   <- predict(lr_raw,   test_raw)
@@ -74,8 +94,8 @@ lr_clean_pred <- predict(lr_clean, test_clean)
 lr_raw_m   <- getMetrics(test_raw[[target_col]],   lr_raw_pred)
 lr_clean_m <- getMetrics(test_clean[[target_col]], lr_clean_pred)
 
-cat("Linear Regression - Raw:  ", lr_raw_m,   "\n")
-cat("Linear Regression - Clean:", lr_clean_m, "\n")
+cat("Tuned Linear Regression - Raw:  ", lr_raw_m,   "\n")
+cat("Tuned Linear Regression - Clean:", lr_clean_m, "\n")
 
 
 # STEP 7 — Model 2: Decision Tree
@@ -120,14 +140,28 @@ cat("Random Forest - Clean:", rf_clean_m, "\n")
 
 # STEP 9 — Model 4: Gradient Boosting
 
-cat("\nTraining Gradient Boosting ...\n")
+# STEP 9 — Model 4: Gradient Boosting (Optimized for Speed)
+cat("\nTraining Gradient Boosting (Optimized Grid)...\n")
+
+# Use a lighter 3-fold CV for GBM to save time
+gb_ctrl <- trainControl(method="cv", number=3)
+
+# Define a targeted grid to avoid exhaustive searching
+gb_grid <- expand.grid(n.trees = c(50, 100),
+                      interaction.depth = c(3, 5),
+                      shrinkage = 0.1,
+                      n.minobsinnode = 10)
 
 gb_raw   <- train(formula_raw, data=train_raw,
                   method="gbm",
+                  trControl=gb_ctrl,
+                  tuneGrid=gb_grid,
                   verbose=FALSE)
 
 gb_clean <- train(formula_clean, data=train_clean,
                   method="gbm",
+                  trControl=gb_ctrl,
+                  tuneGrid=gb_grid,
                   verbose=FALSE)
 
 gb_raw_pred   <- predict(gb_raw,   test_raw)
@@ -136,15 +170,15 @@ gb_clean_pred <- predict(gb_clean, test_clean)
 gb_raw_m   <- getMetrics(test_raw[[target_col]],   gb_raw_pred)
 gb_clean_m <- getMetrics(test_clean[[target_col]], gb_clean_pred)
 
-cat("Gradient Boosting - Raw:  ", gb_raw_m,   "\n")
-cat("Gradient Boosting - Clean:", gb_clean_m, "\n")
+cat("Gradient Boosting (Fast) - Raw:  ", gb_raw_m,   "\n")
+cat("Gradient Boosting (Fast) - Clean:", gb_clean_m, "\n")
 
 
 # STEP 10 — Full Comparison Table (4 Models)
 # ============================================
 
 comparison <- data.frame(
-  Model      = c("Linear Regression",
+  Model      = c("Linear Regression (Tuned)",
                  "Decision Tree",
                  "Random Forest",
                  "Gradient Boosting"),
@@ -176,7 +210,7 @@ cat("Comparison table saved to outputs/predictive/\n")
 # ============================================
 
 r2_df <- data.frame(
-  Model = rep(c("Linear Regression", "Decision Tree",
+  Model = rep(c("Linear Regression (Tuned)", "Decision Tree",
                 "Random Forest",     "Gradient Boosting"), 2),
   R2    = c(lr_raw_m["R2"],  dt_raw_m["R2"],
             rf_raw_m["R2"],  gb_raw_m["R2"],
@@ -208,7 +242,7 @@ cat("R² chart saved!\n")
 # ============================================
 
 rmse_df <- data.frame(
-  Model = rep(c("Linear Regression", "Decision Tree",
+  Model = rep(c("Linear Regression (Tuned)", "Decision Tree",
                 "Random Forest",     "Gradient Boosting"), 2),
   RMSE  = c(lr_raw_m["RMSE"],  dt_raw_m["RMSE"],
             rf_raw_m["RMSE"],  gb_raw_m["RMSE"],
@@ -284,7 +318,7 @@ cat("\n========== FINAL SUMMARY (4 MODELS) ==========\n")
 cat(sprintf("%-20s | Raw R² | Clean R² | Raw RMSE | Clean RMSE | Improvement\n", "Model"))
 cat(rep("-", 75), "\n", sep="")
 
-models   <- c("Linear Regression", "Decision Tree", "Random Forest", "Gradient Boosting")
+models   <- c("Linear Regression (Tuned)", "Decision Tree", "Random Forest", "Gradient Boosting")
 raw_rmse <- c(lr_raw_m["RMSE"], dt_raw_m["RMSE"], rf_raw_m["RMSE"], gb_raw_m["RMSE"])
 cln_rmse <- c(lr_clean_m["RMSE"],dt_clean_m["RMSE"],rf_clean_m["RMSE"],gb_clean_m["RMSE"])
 raw_r2   <- c(lr_raw_m["R2"],  dt_raw_m["R2"],  rf_raw_m["R2"],  gb_raw_m["R2"])
