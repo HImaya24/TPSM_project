@@ -1,16 +1,4 @@
-install.packages("tidyverse")
-install.packages("caret")
-install.packages("rpart")
-install.packages("randomForest")
-install.packages("Metrics")
-install.packages("ggplot2")
-install.packages("corrplot")
-install.packages("effsize")
-install.packages("e1071")
-install.packages("gbm")
-
 # STEP 1 — Load Libraries
-
 library(tidyverse)
 library(caret)
 library(rpart)
@@ -20,9 +8,7 @@ library(ggplot2)
 library(gbm)
 
 # STEP 2 — Load Data
-
-setwd("C:/Users/User/Desktop/TPSM_Project/TPSM_project")
-
+# Relative paths for portability
 # Load raw data
 raw   <- read.csv("data/fifa21_raw.csv") %>%
   select(where(is.numeric)) %>%
@@ -33,17 +19,17 @@ clean <- read.csv("data/fifa21_clean.csv") %>%
   select(where(is.numeric)) %>%
   na.omit()
 
-#Step 3 — Train/Test Split (80/20)
-set.seed(42)
-
+# Detect target column
+target_col <- if("X.OVA" %in% names(raw)) "X.OVA" else if("OVA" %in% names(raw)) "OVA" else names(raw)[1]
+cat("Target variable identified as:", target_col, "\n")
 
 # Raw split
-trainIndex_raw <- createDataPartition(raw$X.OVA, p=0.8, list=FALSE)
+trainIndex_raw <- createDataPartition(raw[[target_col]], p=0.8, list=FALSE)
 train_raw <- raw[trainIndex_raw, ]
 test_raw  <- raw[-trainIndex_raw, ]
 
 # Clean split
-trainIndex_clean <- createDataPartition(clean$X.OVA, p=0.8, list=FALSE)
+trainIndex_clean <- createDataPartition(clean[[target_col]], p=0.8, list=FALSE)
 train_clean <- clean[trainIndex_clean, ]
 test_clean  <- clean[-trainIndex_clean, ]
 
@@ -74,16 +60,19 @@ test_clean  <- test_clean  %>% select(-any_of(leaky_cols))
 cat("\nTraining Linear Regression...\n")
 
 # Train
-lr_raw   <- lm(X.OVA ~ ., data=train_raw)
-lr_clean <- lm(X.OVA ~ ., data=train_clean)
+formula_raw   <- as.formula(paste(target_col, "~ ."))
+formula_clean <- as.formula(paste(target_col, "~ ."))
+
+lr_raw   <- lm(formula_raw, data=train_raw)
+lr_clean <- lm(formula_clean, data=train_clean)
 
 # Predict
 lr_raw_pred   <- predict(lr_raw,   test_raw)
 lr_clean_pred <- predict(lr_clean, test_clean)
 
 # Metrics
-lr_raw_m   <- getMetrics(test_raw$X.OVA,   lr_raw_pred)
-lr_clean_m <- getMetrics(test_clean$X.OVA, lr_clean_pred)
+lr_raw_m   <- getMetrics(test_raw[[target_col]],   lr_raw_pred)
+lr_clean_m <- getMetrics(test_clean[[target_col]], lr_clean_pred)
 
 cat("Linear Regression - Raw:  ", lr_raw_m,   "\n")
 cat("Linear Regression - Clean:", lr_clean_m, "\n")
@@ -92,23 +81,19 @@ cat("Linear Regression - Clean:", lr_clean_m, "\n")
 # STEP 7 — Model 2: Decision Tree
 
 cat("\nTraining Decision Tree...\n")
-# Tuned Decision Tree with more depth
-dt_raw   <- rpart(X.OVA ~ ., data=train_raw,
-                  control=rpart.control(maxdepth=10,
-                                        minsplit=10,
-                                        cp=0.001))
+# Tuned Decision Tree
+dt_raw   <- rpart(formula_raw, data=train_raw,
+                  control=rpart.control(maxdepth=10, minsplit=10, cp=0.001))
 
-dt_clean <- rpart(X.OVA ~ ., data=train_clean,
-                  control=rpart.control(maxdepth=10,
-                                        minsplit=10,
-                                        cp=0.001))
+dt_clean <- rpart(formula_clean, data=train_clean,
+                  control=rpart.control(maxdepth=10, minsplit=10, cp=0.001))
 
-# Predict and get metrics same as before
+# Predict
 dt_raw_pred   <- predict(dt_raw,   test_raw)
 dt_clean_pred <- predict(dt_clean, test_clean)
 
-dt_raw_m   <- getMetrics(test_raw$X.OVA,   dt_raw_pred)
-dt_clean_m <- getMetrics(test_clean$X.OVA, dt_clean_pred)
+dt_raw_m   <- getMetrics(test_raw[[target_col]],   dt_raw_pred)
+dt_clean_m <- getMetrics(test_clean[[target_col]], dt_clean_pred)
 
 cat("Decision Tree Tuned - Raw:  ", dt_raw_m,   "\n")
 cat("Decision Tree Tuned - Clean:", dt_clean_m, "\n")
@@ -118,16 +103,16 @@ cat("Decision Tree Tuned - Clean:", dt_clean_m, "\n")
 cat("\nTraining Random Forest ...\n")
 
 # Train
-rf_raw   <- randomForest(X.OVA ~ ., data=train_raw,   ntree=100)
-rf_clean <- randomForest(X.OVA ~ ., data=train_clean, ntree=100)
+rf_raw   <- randomForest(formula_raw, data=train_raw,   ntree=100)
+rf_clean <- randomForest(formula_clean, data=train_clean, ntree=100)
 
 # Predict
 rf_raw_pred   <- predict(rf_raw,   test_raw)
 rf_clean_pred <- predict(rf_clean, test_clean)
 
 # Metrics
-rf_raw_m   <- getMetrics(test_raw$X.OVA,   rf_raw_pred)
-rf_clean_m <- getMetrics(test_clean$X.OVA, rf_clean_pred)
+rf_raw_m   <- getMetrics(test_raw[[target_col]],   rf_raw_pred)
+rf_clean_m <- getMetrics(test_clean[[target_col]], rf_clean_pred)
 
 cat("Random Forest - Raw:  ", rf_raw_m,   "\n")
 cat("Random Forest - Clean:", rf_clean_m, "\n")
@@ -137,19 +122,19 @@ cat("Random Forest - Clean:", rf_clean_m, "\n")
 
 cat("\nTraining Gradient Boosting ...\n")
 
-gb_raw   <- train(X.OVA ~ ., data=train_raw,
+gb_raw   <- train(formula_raw, data=train_raw,
                   method="gbm",
                   verbose=FALSE)
 
-gb_clean <- train(X.OVA ~ ., data=train_clean,
+gb_clean <- train(formula_clean, data=train_clean,
                   method="gbm",
                   verbose=FALSE)
 
 gb_raw_pred   <- predict(gb_raw,   test_raw)
 gb_clean_pred <- predict(gb_clean, test_clean)
 
-gb_raw_m   <- getMetrics(test_raw$X.OVA,   gb_raw_pred)
-gb_clean_m <- getMetrics(test_clean$X.OVA, gb_clean_pred)
+gb_raw_m   <- getMetrics(test_raw[[target_col]],   gb_raw_pred)
+gb_clean_m <- getMetrics(test_clean[[target_col]], gb_clean_pred)
 
 cat("Gradient Boosting - Raw:  ", gb_raw_m,   "\n")
 cat("Gradient Boosting - Clean:", gb_clean_m, "\n")
@@ -180,10 +165,11 @@ comparison <- data.frame(
 cat("\n===== MODEL COMPARISON TABLE (4 MODELS) =====\n")
 print(comparison)
 
+dir.create("outputs/predictive", showWarnings = FALSE, recursive = TRUE)
 write.csv(comparison,
-          "outputs/results/model_comparison.csv",
+          "outputs/predictive/model_comparison_table.csv",
           row.names=FALSE)
-cat("Comparison table saved!\n")
+cat("Comparison table saved to outputs/predictive/\n")
 
 
 # STEP 11 — R² Bar Chart (4 Models)
@@ -213,7 +199,7 @@ r2_plot <- ggplot(r2_df, aes(x=Model, y=R2, fill=Type)) +
 
 print(r2_plot)
 
-png("outputs/charts/r2_comparison.png", width=900, height=500)
+png("outputs/predictive/r2_comparison.png", width=900, height=500)
 print(r2_plot)
 dev.off()
 cat("R² chart saved!\n")
@@ -244,41 +230,52 @@ rmse_plot <- ggplot(rmse_df, aes(x=Model, y=RMSE, fill=Type)) +
 
 print(rmse_plot)
 
-png("outputs/charts/rmse_comparison.png", width=900, height=500)
+png("outputs/predictive/rmse_comparison.png", width=900, height=500)
 print(rmse_plot)
 dev.off()
 cat("RMSE chart saved!\n")
 
-# STEP 13 — MAE Bar Chart (4 Models)
+# STEP 13 — Advanced Diagnostic: Residual Analysis
 # ============================================
-
-mae_df <- data.frame(
-  Model = rep(c("Linear Regression", "Decision Tree",
-                "Random Forest",     "Gradient Boosting"), 2),
-  MAE   = c(lr_raw_m["MAE"],  dt_raw_m["MAE"],
-            rf_raw_m["MAE"],  gb_raw_m["MAE"],
-            lr_clean_m["MAE"],dt_clean_m["MAE"],
-            rf_clean_m["MAE"],gb_clean_m["MAE"]),
-  Type  = rep(c("Raw", "Clean"), each=4)
+res_df <- data.frame(
+  Actual = test_clean[[target_col]],
+  Predicted = rf_clean_pred,
+  Residual = test_clean[[target_col]] - rf_clean_pred
 )
 
-mae_plot <- ggplot(mae_df, aes(x=Model, y=MAE, fill=Type)) +
-  geom_bar(stat="identity", position="dodge") +
-  scale_fill_manual(values=c("Raw"="tomato", "Clean"="steelblue")) +
-  geom_text(aes(label=round(MAE, 3)),
-            position=position_dodge(width=0.9),
-            vjust=-0.5, size=3.5) +
-  labs(title="MAE: Raw vs Preprocessed Data (4 Models)",
-       subtitle="Lower MAE = Better model accuracy",
-       x="Model", y="MAE") +
+res_plot <- ggplot(res_df, aes(x=Actual, y=Residual)) +
+  geom_point(alpha=0.4) +
+  geom_hline(yintercept=0, color="red", linetype="dashed") +
+  labs(title="Model Diagnostic: Residual Plot (Clean Data)",
+       subtitle="Checks for heteroscedasticity and bias") +
   theme_minimal()
 
-print(mae_plot)
+print(res_plot)
 
-png("outputs/charts/mae_comparison.png", width=900, height=500)
-print(mae_plot)
+# STEP 14 — Feature Importance Impact
+# ============================================
+importance_rf <- as.data.frame(importance(rf_clean))
+importance_rf$Feature <- rownames(importance_rf)
+importance_rf <- importance_rf %>% arrange(desc(IncNodePurity)) %>% head(10)
+
+imp_plot <- ggplot(importance_rf, aes(x=reorder(Feature, IncNodePurity), y=IncNodePurity)) +
+  geom_bar(stat="identity", fill="darkgreen") +
+  coord_flip() +
+  labs(title="Top 10 Feature Importance (Clean Data)",
+       x="Feature", y="Importance (Node Purity)") +
+  theme_minimal()
+
+print(imp_plot)
+
+# STEP 15 — Save Advanced Charts
+dir.create("outputs/predictive", showWarnings = FALSE, recursive = TRUE)
+png("outputs/predictive/residuals.png", width=600, height=400)
+print(res_plot)
 dev.off()
-cat("MAE chart saved!\n")
+
+png("outputs/predictive/feature_importance.png", width=600, height=400)
+print(imp_plot)
+dev.off()
 
 # STEP 14 — Final Summary
 # ============================================

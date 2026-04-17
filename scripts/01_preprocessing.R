@@ -17,30 +17,44 @@ sapply(df, class)
 # Step 3 — Remove Duplicates
 df <- df %>% distinct()
 
-# Step 4 — Clean Value Column
-df$Value <- gsub("[€£]", "", df$Value)
-df$Value <- ifelse(grepl("M", df$Value),
-                   as.numeric(gsub("M", "", df$Value)) * 1000000,
-                   as.numeric(gsub("K", "", df$Value)) * 1000)
+# Step 4 & 5 — Clean Value and Wage Columns
+clean_currency <- function(x) {
+  if (is.na(x) || x == "") return(NA)
+  x <- gsub("[€£]", "", x)
+  multiplier <- 1
+  if(grepl("M", x)) multiplier <- 1000000
+  else if(grepl("K", x)) multiplier <- 1000
+  x <- gsub("[MK]", "", x)
+  return(as.numeric(x) * multiplier)
+}
 
-# Step 5 — Clean Wage Column
-df$Wage <- gsub("[€£]", "", df$Wage)
-df$Wage <- ifelse(grepl("K", df$Wage),
-                  as.numeric(gsub("K", "", df$Wage)) * 1000,
-                  as.numeric(df$Wage))
+df$Value <- sapply(df$Value, clean_currency)
+df$Wage <- sapply(df$Wage, clean_currency)
 
 # Step 6 — Fix Height
-df$Height <- ifelse(grepl("'", df$Height), {
-  parts <- strsplit(df$Height, "'")
-  feet <- as.numeric(sapply(parts, `[`, 1))
-  inches <- as.numeric(gsub('"', '', sapply(parts, `[`, 2)))
-  round((feet * 30.48) + (inches * 2.54), 1)
-}, as.numeric(gsub("cm", "", df$Height)))
+convert_height <- function(h) {
+  if (is.na(h) || h == "") return(NA)
+  if (grepl("'", h)) {
+    parts <- strsplit(h, "'")[[1]]
+    feet <- as.numeric(parts[1])
+    inches <- as.numeric(gsub('"', '', parts[2]))
+    return(round((feet * 30.48) + (inches * 2.54), 1))
+  } else {
+    return(as.numeric(gsub("cm", "", h)))
+  }
+}
+df$Height <- sapply(df$Height, convert_height)
 
 # Fix Weight
-df$Weight <- ifelse(grepl("lbs", df$Weight),
-                    round(as.numeric(gsub("lbs", "", df$Weight)) * 0.453592, 1),
-                    as.numeric(gsub("kg", "", df$Weight)))
+convert_weight <- function(w) {
+  if (is.na(w) || w == "") return(NA)
+  if (grepl("lbs", w)) {
+    return(round(as.numeric(gsub("lbs", "", w)) * 0.453592, 1))
+  } else {
+    return(as.numeric(gsub("kg", "", w)))
+  }
+}
+df$Weight <- sapply(df$Weight, convert_weight)
 
 # Step 7 — (Not applicable — columns not present)
 
@@ -56,16 +70,21 @@ df <- df %>%
                 ~ ifelse(is.na(.), getMode(.), .)))
 
 # Step 9 — Encode Categorical Columns
-if("Preferred.Foot" %in% colnames(df)){
-  df$Preferred.Foot <- ifelse(df$Preferred.Foot == "Right", 1, 0)
+if("foot" %in% colnames(df)){
+  df$foot <- ifelse(df$foot == "Right", 1, 0)
 }
 
-if("Position" %in% colnames(df)){
-  df$Position <- as.numeric(as.factor(df$Position))
+if("Positions" %in% colnames(df)){
+  df$Positions <- as.numeric(as.factor(df$Positions))
 }
 
 if("Nationality" %in% colnames(df)){
   df$Nationality <- as.numeric(as.factor(df$Nationality))
+}
+
+# Fix naming for columns with spaces
+if("Release.Clause" %in% colnames(df)) {
+  # Already read as Release.Clause by read.csv
 }
 
 # Step 10 — Remove Outliers
@@ -81,9 +100,11 @@ remove_outliers <- function(df, col) {
 df <- remove_outliers(df, "Wage")
 df <- remove_outliers(df, "Value")
 
-# Step 11 — Scale Numeric Columns
+# Step 11 — Scale Numeric Columns (Exempting the Target Variable)
+target_col_name <- if("X.OVA" %in% colnames(df)) "X.OVA" else if("OVA" %in% colnames(df)) "OVA" else NA
 numeric_cols <- df %>% select(where(is.numeric)) %>% names()
-df[numeric_cols] <- scale(df[numeric_cols])
+cols_to_scale <- setdiff(numeric_cols, target_col_name)
+df[cols_to_scale] <- scale(df[cols_to_scale])
 
 # Step 12 — Save Final Dataset
 write.csv(df, "data/fifa21_clean.csv", row.names = FALSE)

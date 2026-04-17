@@ -2,4 +2,6 @@ echo "*.RData
 *.Rhistory
 .Rproj.user/
 data/fifa21 raw data v2.csv
+data/fifa21_clean.csv
+data/fifa21_raw.csv
 data/fifa21 raw data v2_clean.csv" > .gitignore

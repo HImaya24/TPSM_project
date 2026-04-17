@@ -7,12 +7,10 @@ library(ranger)
 library(effsize)
 library(ggplot2)
 
-# STEP 2 — Set Working Directory
-setwd("C:/Users/HP/Downloads/TPSM_dataset_forAssignment")
-
 # STEP 3 — Load Datasets
-raw <- read.csv("fifa21_raw_data.csv", stringsAsFactors = FALSE)
-clean <- read.csv("fifa21_clean_final.csv", stringsAsFactors = FALSE)
+# Relative paths for portability
+raw <- read.csv("data/fifa21_raw.csv", stringsAsFactors = FALSE)
+clean <- read.csv("data/fifa21_clean.csv", stringsAsFactors = FALSE)
 
 cat("Raw:", dim(raw), "\n")
 cat("Clean:", dim(clean), "\n")
@@ -37,12 +35,15 @@ clean_numeric <- clean_numeric[1:min_rows, ]
 
 cat("Final rows used:", min_rows, "\n")
 
-# STEP 8 — Separate Features and Target (OVA)
-X_raw <- raw_numeric %>% select(-X.OVA)
-y_raw <- raw_numeric$X.OVA
+# STEP 8 — Separate Features and Target (Robust column detection)
+target_col <- if("X.OVA" %in% names(raw_numeric)) "X.OVA" else if("OVA" %in% names(raw_numeric)) "OVA" else names(raw_numeric)[1]
+cat("Using target column:", target_col, "\n")
 
-X_clean <- clean_numeric %>% select(-X.OVA)
-y_clean <- clean_numeric$X.OVA
+X_raw <- raw_numeric[, !names(raw_numeric) %in% target_col]
+y_raw <- raw_numeric[[target_col]]
+
+X_clean <- clean_numeric[, !names(clean_numeric) %in% target_col]
+y_clean <- clean_numeric[[target_col]]
 
 # STEP 9 — Hypothesis
 cat("\n========== HYPOTHESIS ==========\n")
@@ -96,46 +97,44 @@ cat("Clean Mean R²:", mean(clean_scores), "\n")
 
 
 # VISUALIZATION
-
-
 scores_df <- data.frame(
   Fold = rep(1:10, 2),
   R2 = c(raw_scores, clean_scores),
   Type = rep(c("Raw", "Clean"), each = 10)
 )
 
-ggplot(scores_df, aes(Fold, R2, color = Type)) +
+p_inf <- ggplot(scores_df, aes(Fold, R2, color = Type)) +
   geom_line() +
   geom_point() +
-  ggtitle("R² Comparison (Raw vs Clean)")
+  ggtitle("R² Comparison Across 10-Fold CV (Raw vs Clean)") +
+  theme_minimal()
 
-# PAIRED T-TEST (CORE ANALYSIS)
+print(p_inf)
 
+# Save Plot
+dir.create("outputs/inferential", showWarnings = FALSE, recursive = TRUE)
+png("outputs/inferential/cv_comparison.png", width=800, height=400)
+print(p_inf)
+dev.off()
 
+# PAIRED T-TEST (PARAMETRIC)
 cat("\n========== PAIRED T-TEST ==========\n")
-
 t_test <- t.test(clean_scores, raw_scores, paired = TRUE)
-
 print(t_test)
 
+# WILCOXON SIGNED RANK TEST (ADVANCED)
+cat("\n========== WILCOXON SIGNED-RANK TEST (ADVANCED) ==========\n")
+wilcox_test <- wilcox.test(clean_scores, raw_scores, paired = TRUE, alternative = "greater")
+print(wilcox_test)
 
-#  EFFECT SIZE (Hedges_G)
-
-
+# EFFECT SIZE (Hedges_G)
 hedges_g <- cohen.d(clean_scores, raw_scores, paired = TRUE, hedges.correction = TRUE)
 
-cat("\n Hedges g :" ,hedges_g$estimate,"\n")
-
-
 # SUMMARY METRICS
-
-
-mean_raw <- mean(raw_scores)
+mean_raw   <- mean(raw_scores)
 mean_clean <- mean(clean_scores)
-
-cat("\nMean Raw:", mean_raw)
-cat("\nMean Clean:", mean_clean)
-cat("\nDifference:", mean_clean - mean_raw)
+improvement_pct <- ((mean_clean - mean_raw) / mean_raw) * 100
+alpha <- 0.05
 
 
 # FINAL DECISION
@@ -199,11 +198,18 @@ results_table <- data.frame(
 
 print(results_table)
 
-# Save results table
-write.csv(results_table,
-          "C:/Users/HP/Desktop/final_results.csv",
-          row.names = FALSE)
+# EFFECT SIZE (Hedges_G)
+hedges_g <- cohen.d(clean_scores, raw_scores, paired = TRUE, hedges.correction = TRUE)
 
-cat ("Results saved.")
+# FINAL DECISION
+cat("\n========== FINAL DECISION ==========\n")
+if (wilcox_test$p.value < 0.05) {
+  cat("Reject H₀ (Wilcoxon) → Preprocessing has a CONSISTENT SIGNIFICANT impact.\n")
+} else {
+  cat("Fail to Reject H₀.\n")
+}
 
-View(results_table)
+# Save results
+dir.create("outputs/inferential", showWarnings = FALSE, recursive = TRUE)
+write.csv(results_table, "outputs/inferential/statistical_tests.csv", row.names = FALSE)
+cat("Results saved to outputs/inferential/statistical_tests.csv\n")
