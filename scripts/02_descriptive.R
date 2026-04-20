@@ -18,6 +18,9 @@ dq_summary <- data.frame(
   Clean = c(nrow(clean), ncol(clean), sum(is.na(clean)), sum(duplicated(clean)))
 )
 print(dq_summary)
+dir.create("outputs/descriptive", showWarnings = FALSE, recursive = TRUE)
+write.csv(dq_summary, "outputs/descriptive/data_quality_summary.csv", row.names = FALSE)
+cat("Data Quality Summary saved to outputs/descriptive/data_quality_summary.csv\n")
 
 # STEP 4 — Distribution Analysis (Before vs After)
 # Let's look at 'Wage' as a key indicator of preprocessing impact (outlier removal + scaling)
