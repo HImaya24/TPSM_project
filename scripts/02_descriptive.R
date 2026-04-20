@@ -66,6 +66,10 @@ if(length(cols_to_use) > 2) {
     ggtitle("Correlation Structure (Clean Data)")
   
   print(p3)
+  png("outputs/descriptive/correlation_heatmap.png", width=700, height=600)
+  print(p3)
+  dev.off()
+  cat("Correlation heatmap saved to outputs/descriptive/correlation_heatmap.png\n")
 }
 
 # STEP 6 — Save Descriptive Analytics Report
