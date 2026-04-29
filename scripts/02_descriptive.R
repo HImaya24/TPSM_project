@@ -103,20 +103,39 @@ cols_to_use <- intersect(names(clean_num), c("Age", "Wage", "Value", "Height", "
 if(length(cols_to_use) > 2) {
   cor_clean <- cor(clean_num[, cols_to_use], use="complete.obs")
   
-  # Heatmap
-  melten_cor <- melt(cor_clean)
-  p3 <- ggplot(melten_cor, aes(x=Var1, y=Var2, fill=value)) +
+  # Clean Heatmap
+  melten_cor_clean <- melt(cor_clean)
+  p3_clean <- ggplot(melten_cor_clean, aes(x=Var1, y=Var2, fill=value)) +
     geom_tile() +
     scale_fill_gradient2(low="blue", high="red", mid="white", midpoint=0) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Correlation Structure (Clean Data)")
   
-  print(p3)
-  png("outputs/descriptive/correlation_heatmap.png", width=700, height=600)
-  print(p3)
-  dev.off()
-  cat("Correlation heatmap saved to outputs/descriptive/correlation_heatmap.png\n")
+  # Raw Heatmap (using available numeric columns in raw)
+  raw_num <- raw %>% select(where(is.numeric))
+  cols_to_use_raw <- intersect(names(raw_num), c("Age", "X.OVA", "POT", "Total.Stats", "Base.Stats"))
+  if(length(cols_to_use_raw) > 2) {
+    cor_raw <- cor(raw_num[, cols_to_use_raw], use="complete.obs")
+    melten_cor_raw <- melt(cor_raw)
+    p3_raw <- ggplot(melten_cor_raw, aes(x=Var1, y=Var2, fill=value)) +
+      geom_tile() +
+      scale_fill_gradient2(low="blue", high="red", mid="white", midpoint=0) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      ggtitle("Correlation Structure (Raw Data - Missing Key Features)")
+    
+    # Save Side-by-Side Heatmaps
+    png("outputs/descriptive/correlation_heatmap.png", width=1200, height=600)
+    grid.arrange(p3_raw, p3_clean, ncol=2)
+    dev.off()
+    cat("Correlation heatmap comparison saved to outputs/descriptive/correlation_heatmap.png\n")
+  } else {
+    png("outputs/descriptive/correlation_heatmap_backup.png", width=700, height=600)
+    print(p3_clean)
+    dev.off()
+    cat("Correlation heatmap saved to outputs/descriptive/correlation_heatmap.png\n")
+  }
 }
 
 # STEP 6 — Save Descriptive Analytics Report
