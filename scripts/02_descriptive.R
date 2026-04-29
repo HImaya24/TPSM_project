@@ -190,3 +190,26 @@ if ("Age" %in% names(raw) && "Age" %in% names(clean)) {
   dev.off()
   cat("Scaling impact comparison saved to outputs/descriptive/scaling_impact.png\n")
 }
+
+# STEP 9 — OVA Target Variable Distribution (Raw vs Clean)
+# Shows how dropping outliers in features affects the target distribution
+if (!is.na(target_col_raw) && !is.na(target_col_clean)) {
+  op1 <- ggplot(raw, aes(x=.data[[target_col_raw]])) + 
+    geom_histogram(fill="darkorange", color="black", alpha=0.7, bins=30) +
+    ggtitle("Raw OVA (Right Skewed & Irregular)") + 
+    xlab("Overall Rating (OVA)") +
+    ylab("Count") +
+    theme_minimal()
+
+  op2 <- ggplot(clean, aes(x=.data[[target_col_clean]])) + 
+    geom_histogram(fill="darkcyan", color="black", alpha=0.7, bins=30) +
+    ggtitle("Clean OVA (Smoother Bell Curve)") + 
+    xlab("Overall Rating (OVA)") +
+    ylab("Count") +
+    theme_minimal()
+
+  png("outputs/descriptive/ova_distribution_comparison.png", width=800, height=400)
+  grid.arrange(op1, op2, ncol=2)
+  dev.off()
+  cat("OVA distribution comparison saved to outputs/descriptive/ova_distribution_comparison.png\n")
+}

@@ -127,6 +127,33 @@ cat("\n========== WILCOXON SIGNED-RANK TEST (ADVANCED) ==========\n")
 wilcox_test <- wilcox.test(clean_scores, raw_scores, paired = TRUE, alternative = "greater")
 print(wilcox_test)
 
+# WILCOXON VISUALIZATION: Paired Differences Plot
+# The Wilcoxon Signed-Rank test evaluates the magnitude and direction of differences between pairs.
+diff_df <- data.frame(
+  Fold = 1:10,
+  Difference = clean_scores - raw_scores
+)
+
+p_wilcox <- ggplot(diff_df, aes(x = factor(Fold), y = Difference)) +
+  geom_segment(aes(x = factor(Fold), xend = factor(Fold), y = 0, yend = Difference), color = "gray50") +
+  geom_point(aes(color = Difference > 0), size = 4) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_color_manual(values = c("TRUE" = "#2ca02c", "FALSE" = "#d62728"), 
+                     labels = c("TRUE" = "Improvement (Clean > Raw)", "FALSE" = "Degradation (Clean < Raw)")) +
+  ggtitle("Wilcoxon Test Visualization: Paired Differences per Fold") +
+  xlab("Cross-Validation Fold") +
+  ylab("Difference in R² (Clean - Raw)") +
+  theme_minimal() +
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+print(p_wilcox)
+
+# Save Plot
+png("outputs/inferential/wilcoxon_differences.png", width=800, height=450)
+print(p_wilcox)
+dev.off()
+
+
 # EFFECT SIZE (Hedges_G)
 hedges_g <- cohen.d(clean_scores, raw_scores, paired = TRUE, hedges.correction = TRUE)
 
