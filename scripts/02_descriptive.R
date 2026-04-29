@@ -39,6 +39,53 @@ p2 <- ggplot(clean, aes(x=Wage)) +
   ggtitle("Clean Wage Distribution (Standardized)") +
   theme_minimal()
 
+# STEP 4.5 — Outlier Removal Visualization (Boxplots)
+# Parse raw currencies to make them numeric for plotting
+clean_currency <- function(x) {
+  if (is.na(x) || x == "") return(NA)
+  x <- gsub("[€£]", "", x)
+  multiplier <- 1
+  if(grepl("M", x)) multiplier <- 1000000
+  else if(grepl("K", x)) multiplier <- 1000
+  x <- gsub("[MK]", "", x)
+  return(as.numeric(x) * multiplier)
+}
+
+raw_parsed <- raw %>% 
+  mutate(
+    Wage_num = sapply(Wage, clean_currency),
+    Value_num = sapply(Value, clean_currency)
+  )
+
+bp1 <- ggplot(raw_parsed, aes(y=Wage_num)) + 
+  geom_boxplot(fill="lightcoral") + 
+  ggtitle("Raw Wage (with Outliers)") +
+  ylab("Wage (Numeric)") +
+  theme_minimal() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+bp2 <- ggplot(clean, aes(y=Wage)) + 
+  geom_boxplot(fill="lightgreen") + 
+  ggtitle("Clean Wage (Outliers Removed & Scaled)") +
+  ylab("Wage (Scaled)") +
+  theme_minimal() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+bp3 <- ggplot(raw_parsed, aes(y=Value_num)) + 
+  geom_boxplot(fill="lightcoral") + 
+  ggtitle("Raw Value (with Outliers)") +
+  ylab("Value (Numeric)") +
+  theme_minimal() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+bp4 <- ggplot(clean, aes(y=Value)) + 
+  geom_boxplot(fill="lightgreen") + 
+  ggtitle("Clean Value (Outliers Removed & Scaled)") +
+  ylab("Value (Scaled)") +
+  theme_minimal() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+png("outputs/descriptive/outliers_boxplots.png", width=800, height=600)
+grid.arrange(bp1, bp2, bp3, bp4, ncol=2)
+dev.off()
+cat("Outlier boxplots saved to outputs/descriptive/outliers_boxplots.png\n")
+
 # STEP 5 — Correlation Network/Heatmap Comparison
 # This shows how preprocessing restores/clarifies linear relationships
 get_cor_matrix <- function(df) {
@@ -79,3 +126,48 @@ grid.arrange(p1, p2, ncol=2)
 dev.off()
 
 cat("\nDescriptive Analytics Complete. Report saved to outputs/descriptive/\n")
+
+# STEP 7 — Impact of Preprocessing on Relationships (Scatter plots)
+# Let's plot Value vs OVA to see how outliers obscure relationships
+target_col_raw <- if("X.OVA" %in% names(raw)) "X.OVA" else if("OVA" %in% names(raw)) "OVA" else NA
+target_col_clean <- if("X.OVA" %in% names(clean)) "X.OVA" else if("OVA" %in% names(clean)) "OVA" else NA
+
+if (!is.na(target_col_raw) && !is.na(target_col_clean)) {
+  sp1 <- ggplot(raw_parsed, aes(x=Value_num, y=.data[[target_col_raw]])) +
+    geom_point(alpha=0.3, color="darkred") +
+    ggtitle("Raw Data: Value vs Rating") +
+    xlab("Value (Numeric with Outliers)") +
+    ylab("Overall Rating") +
+    theme_minimal()
+    
+  sp2 <- ggplot(clean, aes(x=Value, y=.data[[target_col_clean]])) +
+    geom_point(alpha=0.3, color="darkblue") +
+    ggtitle("Clean Data: Value vs Rating") +
+    xlab("Value (Scaled & Outliers Removed)") +
+    ylab("Overall Rating") +
+    theme_minimal()
+
+  png("outputs/descriptive/scatter_impact_value.png", width=800, height=400)
+  grid.arrange(sp1, sp2, ncol=2)
+  dev.off()
+  cat("Scatter plot comparison saved to outputs/descriptive/scatter_impact_value.png\n")
+}
+
+# STEP 8 — Impact of Standardization
+# Let's show Age distribution before and after scaling
+if ("Age" %in% names(raw) && "Age" %in% names(clean)) {
+  dp1 <- ggplot(raw, aes(x=Age)) + 
+    geom_density(fill="orange", alpha=0.5) +
+    ggtitle("Raw Age (Unscaled)") + 
+    theme_minimal()
+
+  dp2 <- ggplot(clean, aes(x=Age)) + 
+    geom_density(fill="purple", alpha=0.5) +
+    ggtitle("Clean Age (Standardized)") + 
+    theme_minimal()
+
+  png("outputs/descriptive/scaling_impact.png", width=800, height=400)
+  grid.arrange(dp1, dp2, ncol=2)
+  dev.off()
+  cat("Scaling impact comparison saved to outputs/descriptive/scaling_impact.png\n")
+}
